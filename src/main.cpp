@@ -1,6 +1,10 @@
 #include "Arduino.h"
 #include "ESP8266WiFi.h"
 #include "config.h"
+#include <ArduinoJson.h>
+#include <PubSubClient.h>
+
+#include <Sensor/SensorDallas.h>
 
 #define ONE_WIRE_BUS D5 // 14
 #define VOLTAGE_SENSOR D0
@@ -13,10 +17,34 @@
 #define UPDATE_RATE MINUTE
 #define UPDATE_SENSOR_RATE SECOND * 5
 
-bool connected = false;
+#define CONNECT_WAIT 30 * SECOND // 30 sec
+#define RECONNECT_RATE 5000
+#define READ_RATE 2000
+
+enum CurrState
+{
+	INIT,
+	WIFI_DISCONNECTED,
+	WIFI_CONNECTED,
+	BROKER_DISCONNECTED,
+	BROKER_CONNECTED,
+	SMART_CONFIG,
+};
+
+CurrState state = CurrState::INIT;
+
+OneWire oneWire(ONE_WIRE_BUS);
+WiFiClient espClient;
+PubSubClient client(espClient, MQTT_BROKER, MQTT_PORT);
+
+std::vector<monar::Sensor *> sensors;
+
 unsigned long last_up = 0;
 bool status = false;
 bool long_blink = false;
+
+unsigned long nextReconnectAttempt = 0;
+unsigned long nextSend = 0;
 
 void init_blinker()
 {
@@ -26,12 +54,11 @@ void init_blinker()
 
 void blinker()
 {
-	if (!connected)
+	if (state != CurrState::BROKER_CONNECTED)
 	{
 		if (millis() > last_up)
 		{
 			status = !status;
-
 			last_up = millis() + (long_blink ? 500 : 100);
 		}
 
@@ -43,84 +70,147 @@ void blinker()
 	}
 }
 
-void connect()
+void wifiConnect()
 {
+	if (WiFi.status() == WL_CONNECTED)
+	{
+		return;
+	}
+
+#if defined(WIFI_SSID) && defined(WIFI_PASS)
+	WiFi.begin(WIFI_SSID, WIFI_PASS);
+#endif
+
 	WiFi.mode(WIFI_STA);
 
-#ifdef WIFI_NAME
-#ifdef WIFI_PASS
-	WiFi.begin(WIFI_NAME, WIFI_PASS);
-	Serial.println("Connecting with credentials...");
-#endif
-#endif
+	state = CurrState::WIFI_DISCONNECTED;
 
-	bool success = false;
+	unsigned long wait_time = millis() + CONNECT_WAIT;
 
-	Serial.println("Connecting...");
-
-	long_blink = true;
-
-	long start_time = millis();
 	while (WiFi.status() != WL_CONNECTED)
 	{
-		delay(10);
+		delay(50);
+		blinker();
 
-		if (((millis() - start_time) > MINUTE) && !success)
+		// wait 30 sec to connect to wifi
+		if (wait_time < millis())
 		{
-			long_blink = false;
-
+			// enter SmartConfig mode
 			WiFi.beginSmartConfig();
-			Serial.println("Begin SmartConfig...");
+			state = CurrState::SMART_CONFIG;
+			blinker();
 
-			while (1)
+			wait_time = millis() + CONNECT_WAIT;
+
+			while (true)
 			{
-				delay(10);
+				delay(50);
 
 				if (WiFi.smartConfigDone())
 				{
-					Serial.println("SmartConfig: Success");
-
-					success = true;
 					break;
 				}
 
-				if ((millis() - start_time) > (MINUTE * 2))
+				// wait 30 sec on smart config
+				if (wait_time < millis())
 				{
+					// restart if smart config fails
 					ESP.restart();
 				}
-
-				blinker();
 			}
 		}
-
-		blinker();
 	}
 
-	long_blink = true;
+	if (WiFi.status() == WL_CONNECTED)
+	{
+		Serial.printf("Connected, mac address: %s\n", WiFi.macAddress().c_str());
+	}
 
-	WiFi.printDiag(Serial);
-	// Serial.print("IP Address: "); Serial.println(WiFi.localIP().toString().c_str());
-	// Serial.print("Gateway IP: "); Serial.println(WiFi.gatewayIP().toString().c_str());
-	// Serial.print("Hostname: "); Serial.println(WiFi.hostname().c_str());
-	// Serial.print("RSSI: "); Serial.println(WiFi.RSSI());
+	state = CurrState::WIFI_CONNECTED;
+}
+
+void brokerConnect()
+{
+	if (client.connected() || nextReconnectAttempt > millis())
+	{
+		return;
+	}
+
+	state = CurrState::BROKER_DISCONNECTED;
+
+#if defined(MQTT_USER) && defined(MQTT_PASS)
+	if (client.connect(MQTT::Connect(MONAR_DEVICE_ID).set_will(MONAR_WILL_TOPIC, MONAR_DEVICE_ID, 2, false).set_auth(MQTT_USER, MQTT_PASS)))
+#else
+	if (client.connect(MQTT::Connect(MONAR_DEVICE_ID).set_will(MONAR_WILL_TOPIC, MONAR_DEVICE_ID, 2, false)))
+#endif
+	{
+		state = CurrState::BROKER_CONNECTED;
+
+		// Once connected, publish an announcement...
+		// client.publish(MES_STATE_TOPIC, MES_DEVICE_ID);
+		// client.subscribe(MES_CFG_TOPIC);
+	}
+
+	nextReconnectAttempt = millis() + RECONNECT_RATE;
+}
+
+void buildMessage(String *jsonStr)
+{
+	const size_t bufferSize = JSON_OBJECT_SIZE(2);
+	DynamicJsonDocument jsonBuffer(bufferSize);
+	jsonBuffer["p1"] = 1;
+	jsonBuffer["p2"] = 2;
+	jsonBuffer["p3"] = 3;
+	jsonBuffer["e"] = 1;
+
+	serializeJson(jsonBuffer, *jsonStr);
+}
+
+void sendEvent()
+{
+	// Cancel if not connected
+	if (client.connected() == false) { return; }
+
+	// Wait for update rate
+	if (nextSend < millis())
+	{
+		String msg;
+		buildMessage(&msg);
+
+		nextSend = millis() + READ_RATE;
+	}
+
+	// for (unsigned int i = 0; i < sensors.size(); ++i)
+	// {
+	// 	// sensors.at(i)->receive(pin, value);
+	// }
 }
 
 void setup()
 {
-	delay(500);
-	Serial.begin(9600);
+	Serial.begin(115200);
+	while (!Serial) {}
 
+	state = CurrState::INIT;
 	init_blinker();
 
 	WiFi.setAutoConnect(true);
 	WiFi.setAutoReconnect(true);
-	connect();
 
-	// initialize LED digital pin as an output.
-	pinMode(LED, OUTPUT);
+	sensors.push_back(new monar::SensorDallas(&oneWire));
+	
+	Serial.println("ready");
 }
 
 void loop()
 {
 	blinker();
+
+	wifiConnect();
+	brokerConnect();
+	client.loop();
+
+	sendEvent();
+
+	delay(10);
 }
