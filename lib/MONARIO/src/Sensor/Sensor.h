@@ -10,12 +10,15 @@ namespace monar {
   public:
     Sensor();
 
-    void send(void (*push)(int, float));
-    void setData(int pin, float data);
-
-    virtual void receive(int pin, int value);
     virtual void service() = 0;
-    virtual void notify(void(*alert)(int, String, bool));
+    virtual int length() = 0;
+    virtual char prefix() = 0;
+
+    // void send(void (*push)(int, float));
+    float read(int idx);
+    void setData(int pin, float data);
+    // virtual void receive(int pin, int value);
+    // virtual void notify(void(*alert)(int, String, bool));
 
   protected:
     std::map<int, float> info;

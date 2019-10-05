@@ -10,5 +10,7 @@ namespace monar {
     SensorInputVoltage();
 
     void service() override;
+    int length() override;
+    char prefix() override;
   };
 }

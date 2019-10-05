@@ -13,6 +13,16 @@ namespace monar {
 
   void SensorInputVoltage::service() {
     float v = ((float) ESP.getVcc() / 1024.0f) * 1.12;
-    setData(MONAR_OUTPUT_VOLTAGE, v);
+    setData(0, v);
+  }
+
+  int SensorInputVoltage::length()
+  {
+    return 1;
+  }
+
+  char SensorInputVoltage::prefix()
+  {
+    return 'v';
   }
 }

@@ -15,12 +15,22 @@ namespace monar {
 
   void SensorWallVoltage::service() {
     int value = digitalRead(inputPin);
-    setData(MONAR_OUTPUT_CURRENT, value);
+    setData(0, value);
   }
 
-  void SensorWallVoltage::notify(void(*alert)(int, String, bool)) {
-    if ( (int) info[MONAR_OUTPUT_CURRENT] == 0 ) {
-      (*alert)(MONAR_OUTPUT_LOG, String("Alerta: Ausência de energia detectada"), true);
-    }
+  int SensorWallVoltage::length()
+  {
+    return 1;
   }
+
+  char SensorWallVoltage::prefix()
+  {
+    return 'e';
+  }
+
+//   void SensorWallVoltage::notify(void(*alert)(int, String, bool)) {
+//     if ( (int) info[MONAR_OUTPUT_CURRENT] == 0 ) {
+//       (*alert)(MONAR_OUTPUT_LOG, String("Alerta: Ausência de energia detectada"), true);
+//     }
+//   }
 }
