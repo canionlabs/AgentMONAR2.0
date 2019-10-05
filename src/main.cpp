@@ -14,12 +14,12 @@
 #define SECOND 1000
 #define MINUTE SECOND * 60
 
-#define UPDATE_RATE MINUTE
-#define UPDATE_SENSOR_RATE SECOND * 5
+// #define UPDATE_RATE MINUTE
+// #define UPDATE_SENSOR_RATE SECOND * 5
 
 #define CONNECT_WAIT 30 * SECOND // 30 sec
 #define RECONNECT_RATE 5000
-#define READ_RATE 2000
+#define READ_RATE 15 * SECOND
 
 enum CurrState
 {
@@ -35,7 +35,9 @@ CurrState state = CurrState::INIT;
 
 OneWire oneWire(ONE_WIRE_BUS);
 WiFiClient espClient;
-PubSubClient client(espClient, MQTT_BROKER, MQTT_PORT);
+PubSubClient client(espClient);
+
+IPAddress server(54, 148, 190, 90);
 
 std::vector<monar::Sensor *> sensors;
 
@@ -83,6 +85,7 @@ void wifiConnect()
 
 	WiFi.mode(WIFI_STA);
 
+	Serial.println("Connecting to WIFI");
 	state = CurrState::WIFI_DISCONNECTED;
 
 	unsigned long wait_time = millis() + CONNECT_WAIT;
@@ -99,6 +102,8 @@ void wifiConnect()
 			WiFi.beginSmartConfig();
 			state = CurrState::SMART_CONFIG;
 			blinker();
+
+			Serial.println("Begin smart config");
 
 			wait_time = millis() + CONNECT_WAIT;
 
@@ -136,19 +141,22 @@ void brokerConnect()
 		return;
 	}
 
+	Serial.println("Connecting to Broker");
+
 	state = CurrState::BROKER_DISCONNECTED;
 
-#if defined(MQTT_USER) && defined(MQTT_PASS)
-	if (client.connect(MQTT::Connect(MONAR_DEVICE_ID).set_will(MONAR_WILL_TOPIC, MONAR_DEVICE_ID, 2, false).set_auth(MQTT_USER, MQTT_PASS)))
-#else
-	if (client.connect(MQTT::Connect(MONAR_DEVICE_ID).set_will(MONAR_WILL_TOPIC, MONAR_DEVICE_ID, 2, false)))
-#endif
+	if (client.connect(MQTT_USER, MQTT_PASS, NULL))
 	{
 		state = CurrState::BROKER_CONNECTED;
 
 		// Once connected, publish an announcement...
 		// client.publish(MES_STATE_TOPIC, MES_DEVICE_ID);
 		// client.subscribe(MES_CFG_TOPIC);
+
+		Serial.println("Connected to Broker");
+	} else {
+		Serial.print("Error while connecting to broker: ");
+		Serial.println(client.state());
 	}
 
 	nextReconnectAttempt = millis() + RECONNECT_RATE;
@@ -156,12 +164,17 @@ void brokerConnect()
 
 void buildMessage(String *jsonStr)
 {
-	const size_t bufferSize = JSON_OBJECT_SIZE(2);
+	const size_t bufferSize = JSON_OBJECT_SIZE(4);
 	DynamicJsonDocument jsonBuffer(bufferSize);
 	jsonBuffer["p1"] = 1;
 	jsonBuffer["p2"] = 2;
 	jsonBuffer["p3"] = 3;
 	jsonBuffer["e"] = 1;
+
+	// for (unsigned int i = 0; i < sensors.size(); ++i)
+	// {
+	// 	// sensors.at(i)->receive(pin, value);
+	// }
 
 	serializeJson(jsonBuffer, *jsonStr);
 }
@@ -177,13 +190,12 @@ void sendEvent()
 		String msg;
 		buildMessage(&msg);
 
-		nextSend = millis() + READ_RATE;
-	}
+		client.publish(MONAR_DATA_TOPIC, msg.c_str());
 
-	// for (unsigned int i = 0; i < sensors.size(); ++i)
-	// {
-	// 	// sensors.at(i)->receive(pin, value);
-	// }
+		nextSend = millis() + READ_RATE;
+
+		Serial.println("push");
+	}
 }
 
 void setup()
@@ -196,6 +208,8 @@ void setup()
 
 	WiFi.setAutoConnect(true);
 	WiFi.setAutoReconnect(true);
+
+	client.setServer(server, MQTT_PORT);
 
 	sensors.push_back(new monar::SensorDallas(&oneWire));
 	
