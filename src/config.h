@@ -14,4 +14,4 @@
 // #define MES_DATA_TOPIC "canionlabs/mes/data"
 
 // #define MONAR_DEVICE_ID "device1234"
-#define MONAR_DATA_TOPIC "v1/devices/me/telemetry"
+#define DATA_TOPIC "v1/devices/me/telemetry"

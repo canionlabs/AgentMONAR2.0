@@ -5,6 +5,7 @@
 #include <PubSubClient.h>
 
 #include <Sensor/SensorDallas.h>
+#include <Sensor/SensorWallVoltage.h>
 
 #define ONE_WIRE_BUS D5 // 14
 #define VOLTAGE_SENSOR D0
@@ -166,17 +167,31 @@ void buildMessage(String *jsonStr)
 {
 	const size_t bufferSize = JSON_OBJECT_SIZE(4);
 	DynamicJsonDocument jsonBuffer(bufferSize);
-	jsonBuffer["p1"] = 1;
-	jsonBuffer["p2"] = 2;
-	jsonBuffer["p3"] = 3;
-	jsonBuffer["e"] = 1;
 
-	// for (unsigned int i = 0; i < sensors.size(); ++i)
-	// {
-	// 	// sensors.at(i)->receive(pin, value);
-	// }
+	for (unsigned int i = 0; i < sensors.size(); ++i)
+	{
+		for (int j = 0; j < sensors.at(i)->length(); ++j)
+		{
+			String base = "";
+			base += sensors.at(i)->prefix();
+			base += j;
+
+			Serial.println(base);
+			Serial.println(sensors.at(i)->read(j));
+
+			jsonBuffer[base] = sensors.at(i)->read(j);
+		}
+	}
 
 	serializeJson(jsonBuffer, *jsonStr);
+}
+
+void serviceSensor()
+{
+    for (unsigned int i = 0; i < sensors.size(); ++i)
+    {
+        sensors.at(i)->service();
+    }
 }
 
 void sendEvent()
@@ -187,10 +202,12 @@ void sendEvent()
 	// Wait for update rate
 	if (nextSend < millis())
 	{
+		serviceSensor();
+
 		String msg;
 		buildMessage(&msg);
 
-		client.publish(MONAR_DATA_TOPIC, msg.c_str());
+		client.publish(DATA_TOPIC, msg.c_str());
 
 		nextSend = millis() + READ_RATE;
 
@@ -212,6 +229,7 @@ void setup()
 	client.setServer(server, MQTT_PORT);
 
 	sensors.push_back(new monar::SensorDallas(&oneWire));
+	sensors.push_back(new monar::SensorWallVoltage(VOLTAGE_SENSOR));
 	
 	Serial.println("ready");
 }
