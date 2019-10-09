@@ -38,8 +38,6 @@ OneWire oneWire(ONE_WIRE_BUS);
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-IPAddress server(54, 148, 190, 90);
-
 std::vector<monar::Sensor *> sensors;
 
 unsigned long last_up = 0;
@@ -226,7 +224,7 @@ void setup()
 	WiFi.setAutoConnect(true);
 	WiFi.setAutoReconnect(true);
 
-	client.setServer(server, MQTT_PORT);
+	client.setServer(MQTT_BROKER, MQTT_PORT);
 
 	sensors.push_back(new monar::SensorDallas(&oneWire));
 	sensors.push_back(new monar::SensorWallVoltage(VOLTAGE_SENSOR));
