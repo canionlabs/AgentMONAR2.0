@@ -1,3 +1,4 @@
+#if MONAR
 /*
 * @Author: Ramon Melo
 * @Date:   2018-07-24
@@ -160,3 +161,4 @@ char SensorDallas::prefix()
 //     }
 // }
 } // namespace monar
+#endif

@@ -4,8 +4,18 @@
 #include <ArduinoJson.h>
 #include <PubSubClient.h>
 
+#include <Sensor/Sensor.h>
+#include <Actuator/Actuator.h>
+
+#if MONAR
 #include <Sensor/SensorDallas.h>
 #include <Sensor/SensorWallVoltage.h>
+#endif
+
+#if GLACIER
+#include <Actuator/ActuatorIR.h>
+#include <Sensor/SensorCurrentAC.h>
+#endif
 
 #define ONE_WIRE_BUS D5 // 14
 #define VOLTAGE_SENSOR D0
@@ -34,11 +44,15 @@ enum CurrState
 
 CurrState state = CurrState::INIT;
 
+#if MONAR
 OneWire oneWire(ONE_WIRE_BUS);
+#endif
+
 WiFiClient espClient;
 PubSubClient client(espClient);
 
 std::vector<monar::Sensor *> sensors;
+std::vector<monar::Actuator *> actuators;
 
 unsigned long last_up = 0;
 bool status = false;
@@ -226,9 +240,16 @@ void setup()
 
 	client.setServer(MQTT_BROKER, MQTT_PORT);
 
+#if MONAR
 	sensors.push_back(new monar::SensorDallas(&oneWire));
 	sensors.push_back(new monar::SensorWallVoltage(VOLTAGE_SENSOR));
-	
+#endif
+
+#if GLACIER
+	sensors.push_back(new monar::SensorCurrentAC());
+	actuators.push_back(new monar::ActuatorIR());
+#endif
+
 	Serial.println("ready");
 }
 

@@ -1,3 +1,4 @@
+#if MONAR
 /*
 * @Author: Ramon Melo
 * @Date:   2018-08-20
@@ -34,3 +35,4 @@ namespace monar {
 //     }
 //   }
 }
+#endif

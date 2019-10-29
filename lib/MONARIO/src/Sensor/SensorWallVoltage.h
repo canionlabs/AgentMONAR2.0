@@ -1,4 +1,4 @@
-
+#if MONAR
 #pragma once
 
 #include "Sensor.h"
@@ -19,3 +19,4 @@ namespace monar {
     int inputPin;
   };
 }
+#endif
