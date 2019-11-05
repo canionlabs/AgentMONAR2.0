@@ -6,11 +6,13 @@
 
 #include <Sensor/SensorDallas.h>
 #include <Sensor/SensorWallVoltage.h>
+#include <Sensor/SensorDHT.h>
 
 #define ONE_WIRE_BUS D5 // 14
 #define VOLTAGE_SENSOR D0
+#define DHT_PIN D3
 #define LED_IN D4 // 2
-#define LED D6	// 12
+#define LED LED_IN // D6	// 12
 
 #define SECOND 1000
 #define MINUTE SECOND * 60
@@ -147,11 +149,6 @@ void brokerConnect()
 	if (client.connect(MQTT_ID, MQTT_USER, NULL))
 	{
 		state = CurrState::BROKER_CONNECTED;
-
-		// Once connected, publish an announcement...
-		// client.publish(MES_STATE_TOPIC, MES_DEVICE_ID);
-		// client.subscribe(MES_CFG_TOPIC);
-
 		Serial.println("Connected to Broker");
 	} else {
 		Serial.print("Error while connecting to broker: ");
@@ -226,9 +223,10 @@ void setup()
 
 	client.setServer(MQTT_BROKER, MQTT_PORT);
 
+	sensors.push_back(new monar::SensorDHT(DHT_PIN));
 	sensors.push_back(new monar::SensorDallas(&oneWire));
 	sensors.push_back(new monar::SensorWallVoltage(VOLTAGE_SENSOR));
-	
+
 	Serial.println("ready");
 }
 
