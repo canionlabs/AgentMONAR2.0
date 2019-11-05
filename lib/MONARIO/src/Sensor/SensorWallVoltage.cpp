@@ -7,30 +7,33 @@
 
 #include "SensorWallVoltage.h"
 
-namespace monar {
+namespace monar
+{
+SensorWallVoltage::SensorWallVoltage(int pin)
+{
+	inputPin = pin;
+	pinMode(inputPin, INPUT);
+}
 
-  SensorWallVoltage::SensorWallVoltage(int pin) : inputPin(pin) {
-    pinMode(inputPin, INPUT);
-  }
+void SensorWallVoltage::service()
+{
+	int value = digitalRead(inputPin);
+	setData(0, value);
+}
 
-  void SensorWallVoltage::service() {
-    int value = digitalRead(inputPin);
-    setData(0, value);
-  }
+int SensorWallVoltage::length()
+{
+	return 1;
+}
 
-  int SensorWallVoltage::length()
-  {
-    return 1;
-  }
-
-  char SensorWallVoltage::prefix()
-  {
-    return 'e';
-  }
+char SensorWallVoltage::prefix()
+{
+	return 'e';
+}
 
 //   void SensorWallVoltage::notify(void(*alert)(int, String, bool)) {
 //     if ( (int) info[MONAR_OUTPUT_CURRENT] == 0 ) {
 //       (*alert)(MONAR_OUTPUT_LOG, String("Alerta: Ausência de energia detectada"), true);
 //     }
 //   }
-}
+} // namespace monar
