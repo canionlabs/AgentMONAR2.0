@@ -144,7 +144,7 @@ void brokerConnect()
 
 	state = CurrState::BROKER_DISCONNECTED;
 
-	if (client.connect(MQTT_USER, MQTT_PASS, NULL))
+	if (client.connect(MQTT_ID, MQTT_USER, NULL))
 	{
 		state = CurrState::BROKER_CONNECTED;
 
