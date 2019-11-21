@@ -1,3 +1,4 @@
+#ifdef SENSOR_WALL
 /*
 * @Author: Ramon Melo
 * @Date:   2018-08-20
@@ -37,3 +38,4 @@ char SensorWallVoltage::prefix()
 //     }
 //   }
 } // namespace monar
+#endif

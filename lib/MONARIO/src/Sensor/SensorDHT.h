@@ -1,3 +1,4 @@
+#ifdef SENSOR_DHT
 #pragma once
 
 #include "Sensor.h"
@@ -23,3 +24,4 @@ namespace monar {
 	  DHT_Unified dht;
   };
 }
+#endif

@@ -4,9 +4,19 @@
 #include <ArduinoJson.h>
 #include <PubSubClient.h>
 
+#include <Sensor/Sensor.h>
+
+#ifdef SENSOR_DALLAS
 #include <Sensor/SensorDallas.h>
+#endif
+
+#ifdef SENSOR_WALL
 #include <Sensor/SensorWallVoltage.h>
+#endif
+
+#ifdef SENSOR_DHT
 #include <Sensor/SensorDHT.h>
+#endif
 
 #define ONE_WIRE_BUS D5 // 14
 #define VOLTAGE_SENSOR D0
@@ -223,9 +233,15 @@ void setup()
 
 	client.setServer(MQTT_BROKER, MQTT_PORT);
 
-	sensors.push_back(new monar::SensorDHT(DHT_PIN));
+#ifdef SENSOR_DALLAS
 	sensors.push_back(new monar::SensorDallas(&oneWire));
+#endif
+#ifdef SENSOR_WALL
 	sensors.push_back(new monar::SensorWallVoltage(VOLTAGE_SENSOR));
+#endif
+#ifdef SENSOR_DHT
+	sensors.push_back(new monar::SensorDHT(DHT_PIN));
+#endif
 
 	Serial.println("ready");
 }

@@ -1,3 +1,4 @@
+#ifdef SENSOR_DHT
 /*
 * @Author: Ramon Melo
 * @Date:   2018-08-06
@@ -103,3 +104,4 @@ char SensorDHT::prefix()
 	return 'h';
 }
 } // namespace monar
+#endif

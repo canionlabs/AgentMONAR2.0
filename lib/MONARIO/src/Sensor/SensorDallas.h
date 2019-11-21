@@ -1,3 +1,4 @@
+#ifdef SENSOR_DALLAS
 #pragma once
 
 #include "Sensor.h"
@@ -30,3 +31,4 @@ namespace monar {
     // std::map<int, int> pin_map;
   };
 }
+#endif
