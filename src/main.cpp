@@ -1,34 +1,38 @@
-#include "Arduino.h"
-#include "ESP8266WiFi.h"
 #include "config.h"
+
+#include "Arduino.h"
 #include <ArduinoJson.h>
 #include <PubSubClient.h>
+
+// AutoConnect
+#include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
+#include <AutoConnect.h>
 
 #include <Sensor/Sensor.h>
 
 #ifdef SENSOR_DALLAS
 #include <Sensor/SensorDallas.h>
+
+#define ONE_WIRE_BUS D5 // 14
+OneWire oneWire(ONE_WIRE_BUS);
 #endif
 
 #ifdef SENSOR_WALL
 #include <Sensor/SensorWallVoltage.h>
+#define VOLTAGE_SENSOR D0
 #endif
 
 #ifdef SENSOR_DHT
 #include <Sensor/SensorDHT.h>
+#define DHT_PIN D3
 #endif
 
-#define ONE_WIRE_BUS D5 // 14
-#define VOLTAGE_SENSOR D0
-#define DHT_PIN D3
-#define LED_IN D4 // 2
+#define LED_IN D4  // 2
 #define LED LED_IN // D6	// 12
 
 #define SECOND 1000
 #define MINUTE SECOND * 60
-
-// #define UPDATE_RATE MINUTE
-// #define UPDATE_SENSOR_RATE SECOND * 5
 
 #define CONNECT_WAIT 30 * SECOND // 30 sec
 #define RECONNECT_RATE 5000
@@ -46,9 +50,11 @@ enum CurrState
 
 CurrState state = CurrState::INIT;
 
-OneWire oneWire(ONE_WIRE_BUS);
 WiFiClient espClient;
 PubSubClient client(espClient);
+
+ESP8266WebServer Server;
+AutoConnect Portal(Server);
 
 std::vector<monar::Sensor *> sensors;
 
@@ -58,6 +64,12 @@ bool long_blink = false;
 
 unsigned long nextReconnectAttempt = 0;
 unsigned long nextSend = 0;
+
+void rootPage()
+{
+	char content[] = "Hello, world";
+	Server.send(200, "text/plain", content);
+}
 
 void init_blinker()
 {
@@ -83,68 +95,6 @@ void blinker()
 	}
 }
 
-void wifiConnect()
-{
-	if (WiFi.status() == WL_CONNECTED)
-	{
-		return;
-	}
-
-#if defined(WIFI_SSID) && defined(WIFI_PASS)
-	WiFi.begin(WIFI_SSID, WIFI_PASS);
-#endif
-
-	WiFi.mode(WIFI_STA);
-
-	Serial.println("Connecting to WIFI");
-	state = CurrState::WIFI_DISCONNECTED;
-
-	unsigned long wait_time = millis() + CONNECT_WAIT;
-
-	while (WiFi.status() != WL_CONNECTED)
-	{
-		delay(50);
-		blinker();
-
-		// wait 30 sec to connect to wifi
-		if (wait_time < millis())
-		{
-			// enter SmartConfig mode
-			WiFi.beginSmartConfig();
-			state = CurrState::SMART_CONFIG;
-			blinker();
-
-			Serial.println("Begin smart config");
-
-			wait_time = millis() + CONNECT_WAIT;
-
-			while (true)
-			{
-				delay(50);
-
-				if (WiFi.smartConfigDone())
-				{
-					break;
-				}
-
-				// wait 30 sec on smart config
-				if (wait_time < millis())
-				{
-					// restart if smart config fails
-					ESP.restart();
-				}
-			}
-		}
-	}
-
-	if (WiFi.status() == WL_CONNECTED)
-	{
-		Serial.printf("Connected, mac address: %s\n", WiFi.macAddress().c_str());
-	}
-
-	state = CurrState::WIFI_CONNECTED;
-}
-
 void brokerConnect()
 {
 	if (client.connected() || nextReconnectAttempt > millis())
@@ -160,7 +110,9 @@ void brokerConnect()
 	{
 		state = CurrState::BROKER_CONNECTED;
 		Serial.println("Connected to Broker");
-	} else {
+	}
+	else
+	{
 		Serial.print("Error while connecting to broker: ");
 		Serial.println(client.state());
 	}
@@ -193,16 +145,19 @@ void buildMessage(String *jsonStr)
 
 void serviceSensor()
 {
-    for (unsigned int i = 0; i < sensors.size(); ++i)
-    {
-        sensors.at(i)->service();
-    }
+	for (unsigned int i = 0; i < sensors.size(); ++i)
+	{
+		sensors.at(i)->service();
+	}
 }
 
 void sendEvent()
 {
 	// Cancel if not connected
-	if (client.connected() == false) { return; }
+	if (client.connected() == false)
+	{
+		return;
+	}
 
 	// Wait for update rate
 	if (nextSend < millis())
@@ -223,13 +178,12 @@ void sendEvent()
 void setup()
 {
 	Serial.begin(115200);
-	while (!Serial) {}
+	while (!Serial)
+	{
+	}
 
 	state = CurrState::INIT;
 	init_blinker();
-
-	WiFi.setAutoConnect(true);
-	WiFi.setAutoReconnect(true);
 
 	client.setServer(MQTT_BROKER, MQTT_PORT);
 
@@ -243,6 +197,12 @@ void setup()
 	sensors.push_back(new monar::SensorDHT(DHT_PIN));
 #endif
 
+	Server.on("/", rootPage);
+	if (Portal.begin())
+	{
+		Serial.println("WiFi connected: " + WiFi.localIP().toString());
+	}
+
 	Serial.println("ready");
 }
 
@@ -250,7 +210,8 @@ void loop()
 {
 	blinker();
 
-	wifiConnect();
+	Portal.handleClient();
+
 	brokerConnect();
 	client.loop();
 
