@@ -55,6 +55,7 @@ PubSubClient client(espClient);
 
 ESP8266WebServer Server;
 AutoConnect Portal(Server);
+AutoConnectConfig Config;
 
 std::vector<monar::Sensor *> sensors;
 
@@ -67,7 +68,7 @@ unsigned long nextSend = 0;
 
 void rootPage()
 {
-	char content[] = "Hello, world";
+	char content[] = "MONAR, CanionLabs";
 	Server.send(200, "text/plain", content);
 }
 
@@ -196,6 +197,9 @@ void setup()
 #ifdef SENSOR_DHT
 	sensors.push_back(new monar::SensorDHT(DHT_PIN));
 #endif
+
+	Config.title = "MONAR";
+	Portal.config(Config);
 
 	Server.on("/", rootPage);
 	if (Portal.begin())
