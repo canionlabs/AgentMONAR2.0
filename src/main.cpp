@@ -63,6 +63,8 @@ unsigned long last_up = 0;
 bool status = false;
 bool long_blink = false;
 
+bool sent_attr = false;
+
 unsigned long nextReconnectAttempt = 0;
 unsigned long nextSend = 0;
 
@@ -176,6 +178,25 @@ void sendEvent()
 	}
 }
 
+void update_attr()
+{
+	if (sent_attr == false && client.connected())
+	{
+		String output;
+		StaticJsonDocument<200> doc;
+		doc["v"] = VERSION;
+		serializeJson(doc, output);
+		
+		Serial.println(output);
+
+		if (client.publish(ATTR_TOPIC, output.c_str()))
+		{
+			Serial.println("Attributes Updated");
+ 			sent_attr = true;
+		}
+	}
+}
+
 void setup()
 {
 	Serial.begin(115200);
@@ -220,6 +241,7 @@ void loop()
 	client.loop();
 
 	sendEvent();
+	update_attr();
 
 	delay(10);
 }

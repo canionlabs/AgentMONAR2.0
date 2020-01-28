@@ -6,3 +6,6 @@
 #define MQTT_PORT 1883
 
 #define DATA_TOPIC "v1/devices/me/telemetry"
+#define ATTR_TOPIC "v1/devices/me/attributes"
+
+#define VERSION 200
