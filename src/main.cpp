@@ -186,13 +186,13 @@ void update_attr()
 		StaticJsonDocument<200> doc;
 		doc["v"] = VERSION;
 		serializeJson(doc, output);
-		
+
 		Serial.println(output);
 
 		if (client.publish(ATTR_TOPIC, output.c_str()))
 		{
 			Serial.println("Attributes Updated");
- 			sent_attr = true;
+			sent_attr = true;
 		}
 	}
 }
@@ -203,6 +203,8 @@ void setup()
 	while (!Serial)
 	{
 	}
+
+	Serial.println("\nstarting...");
 
 	state = CurrState::INIT;
 	init_blinker();
@@ -219,13 +221,21 @@ void setup()
 	sensors.push_back(new monar::SensorDHT(DHT_PIN));
 #endif
 
-	Config.title = "MONAR";
+	Config.title = PORTAL_TITLE;
+	Config.apid = PORTAL_TITLE + WiFi.macAddress();
+	Config.psk = PORTAL_PW;
+	Config.autoReconnect = true;
+
 	Portal.config(Config);
 
 	Server.on("/", rootPage);
 	if (Portal.begin())
 	{
 		Serial.println("WiFi connected: " + WiFi.localIP().toString());
+	}
+	else
+	{
+		Serial.println("Error starting portal");
 	}
 
 	Serial.println("ready");
