@@ -225,6 +225,7 @@ void setup()
 	Config.apid = PORTAL_TITLE + WiFi.macAddress();
 	Config.psk = PORTAL_PW;
 	Config.autoReconnect = true;
+	Config.autoReset = true;
 
 	Portal.config(Config);
 
